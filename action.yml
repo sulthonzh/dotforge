@@ -1,0 +1,75 @@
+name: 'Docker Remote Deployment'
+description: 'GitHub Action for Docker remote deployment using SSH with enhanced security'
+branding:
+  icon: 'send'
+  color: 'green'
+inputs:
+  remote_docker_host:
+    description: 'Remote Docker host (user@host)'
+    required: true
+  ssh_public_key:
+    description: 'SSH public key'
+    required: true
+  ssh_private_key:
+    description: 'SSH private key'
+    required: true
+  args:
+    description: 'Deployment command args'
+    required: true
+  remote_docker_port:
+    description: 'Remote SSH port'
+    required: false
+    default: '22'
+  deployment_mode:
+    description: 'docker-compose or docker-swarm'
+    required: false
+    default: 'docker-compose'
+  copy_stack_file:
+    description: 'Copy stack file to remote server'
+    required: false
+    default: 'false'
+  deploy_path:
+    description: 'Deployment path on remote server'
+    required: false
+    default: '~/docker-deployment'
+  stack_file_name:
+    description: 'Stack file name'
+    required: false
+    default: 'docker-compose.yml'
+  keep_files:
+    description: 'Number of files to keep'
+    required: false
+    default: '4'
+  docker_prune:
+    description: 'Run docker system prune'
+    required: false
+    default: 'false'
+  pre_deployment_command_args:
+    description: 'Pre-deployment commands'
+    required: false
+  pull_images_first:
+    description: 'Pull images before deploying'
+    required: false
+    default: 'false'
+  docker_registry_username:
+    description: 'Registry username'
+    required: false
+  docker_registry_password:
+    description: 'Registry password'
+    required: false
+  docker_registry_uri:
+    description: 'Registry URI'
+    required: false
+    default: 'https://registry.hub.docker.com'
+outputs:
+  deployment_status:
+    description: 'Status of the deployment'
+    value: 'success'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '--entrypoint'
+    - '/docker-entrypoint.sh'
+  env:
+    GITHUB_ACTIONS: true
