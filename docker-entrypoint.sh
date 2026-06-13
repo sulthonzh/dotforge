@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 
 execute_ssh(){
@@ -176,7 +176,7 @@ if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
   echo "WARNING: This will remove unused images, containers, networks, and volumes."
   echo "This is a destructive operation that cannot be undone."
   echo "Proceeding with docker prune automatically..."
-  if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a; then
+  if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a -f; then
     echo "Error: Docker prune failed"
     exit 1
   fi
