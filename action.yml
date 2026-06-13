@@ -68,8 +68,5 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  args:
-    - '--entrypoint'
-    - '/docker-entrypoint.sh'
   env:
     GITHUB_ACTIONS: true
