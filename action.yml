@@ -63,8 +63,7 @@ inputs:
     default: 'https://registry.hub.docker.com'
 outputs:
   deployment_status:
-    description: 'Status of the deployment'
-    value: 'success'
+    description: 'Status of the deployment (success or failed)'
 runs:
   using: 'docker'
   image: 'Dockerfile'

@@ -182,6 +182,30 @@ if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
   fi
 fi
 
+# Cleanup function to remove SSH keys and agent
+cleanup() {
+  local exit_code=$?
+  echo "Cleaning up..."
+  # Remove SSH keys
+  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+  # Kill SSH agent if running
+  if [ -n "${SSH_AGENT_PID:-}" ]; then
+    kill $SSH_AGENT_PID 2>/dev/null || true
+  fi
+  # Remove docker context
+  docker context rm remote -f 2>/dev/null || true
+  # Report deployment status
+  if [ $exit_code -eq 0 ]; then
+    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
+  else
+    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
+  fi
+  exit $exit_code
+}
+
+# Set trap for cleanup early so it covers the whole script
+trap cleanup EXIT
+
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
   execute_ssh "mkdir -p $INPUT_DEPLOY_PATH/stacks || true"
@@ -200,40 +224,33 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   # Create symlink and clean up old files
   execute_ssh "ln -nfs $INPUT_DEPLOY_PATH/stacks/$FILE_NAME $INPUT_DEPLOY_PATH/$INPUT_STACK_FILE_NAME"
   execute_ssh "ls -t $INPUT_DEPLOY_PATH/stacks/docker-stack-* 2>/dev/null | tail -n +$INPUT_KEEP_FILES | xargs rm --  2>/dev/null || true"
+fi
 
-  # Pull images if requested
-  if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
-    echo "Pulling images first..."
+# Pull images if requested (both modes)
+if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
+  echo "Pulling images first..."
+  if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
     execute_ssh "${DEPLOYMENT_COMMAND} pull"
+  else
+    ${DEPLOYMENT_COMMAND} pull 2>&1
   fi
+fi
 
-  # Run pre-deployment commands if specified
-  if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
-    echo "Running pre-deployment commands..."
+# Run pre-deployment commands if specified (both modes)
+if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
+  echo "Running pre-deployment commands..."
+  if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
     execute_ssh "${DEPLOYMENT_COMMAND} $INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+  else
+    ${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS} 2>&1
   fi
+fi
 
-  # Run deployment
+# Run deployment
+if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Running deployment..."
   execute_ssh "${DEPLOYMENT_COMMAND} $INPUT_ARGS"
-  
 else
   echo "Connecting to $INPUT_REMOTE_DOCKER_HOST... Command: ${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
   ${DEPLOYMENT_COMMAND} ${INPUT_ARGS} 2>&1
 fi
-
-# Cleanup function to remove SSH keys and agent
-cleanup() {
-  echo "Cleaning up..."
-  # Remove SSH keys
-  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
-  # Kill SSH agent if running
-  if [ -n "$SSH_AGENT_PID" ]; then
-    kill $SSH_AGENT_PID 2>/dev/null || true
-  fi
-  # Remove docker context
-  docker context rm remote -f 2>/dev/null || true
-}
-
-# Set trap for cleanup
-trap cleanup EXIT
