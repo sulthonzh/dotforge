@@ -91,6 +91,11 @@ validate_input "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
 
+# Validate pre_deployment_command_args if set (consistency with other validated inputs)
+if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ]; then
+  validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+fi
+
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
   echo "Error: remote_docker_port must be a number: $INPUT_REMOTE_DOCKER_PORT"
@@ -139,6 +144,31 @@ chmod 600 ~/.ssh/id_rsa.pub
 eval $(ssh-agent)
 ssh-add ~/.ssh/id_rsa
 
+# Define cleanup function BEFORE any operations that could fail
+# This ensures SSH keys and agent are always cleaned up
+cleanup() {
+  local exit_code=$?
+  echo "Cleaning up..."
+  # Remove SSH keys
+  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+  # Kill SSH agent if running
+  if [ -n "${SSH_AGENT_PID:-}" ]; then
+    kill $SSH_AGENT_PID 2>/dev/null || true
+  fi
+  # Remove docker context
+  docker context rm remote -f 2>/dev/null || true
+  # Report deployment status
+  if [ $exit_code -eq 0 ]; then
+    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
+  else
+    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
+  fi
+  exit $exit_code
+}
+
+# Set trap immediately after SSH keys are written — covers registry login, prune, and deployment
+trap cleanup EXIT
+
 echo "Add known hosts"
 ssh-keyscan -p $INPUT_REMOTE_DOCKER_PORT "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "Warning: Could not scan SSH host key"
 
@@ -173,7 +203,7 @@ if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGI
 fi
 
 if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
-  echo "WARNING: This will remove unused images, containers, networks, and volumes."
+  echo "WARNING: This will remove all unused images, containers, and networks (not volumes)."
   echo "This is a destructive operation that cannot be undone."
   echo "Proceeding with docker prune automatically..."
   if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a -f; then
@@ -181,30 +211,6 @@ if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
     exit 1
   fi
 fi
-
-# Cleanup function to remove SSH keys and agent
-cleanup() {
-  local exit_code=$?
-  echo "Cleaning up..."
-  # Remove SSH keys
-  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
-  # Kill SSH agent if running
-  if [ -n "${SSH_AGENT_PID:-}" ]; then
-    kill $SSH_AGENT_PID 2>/dev/null || true
-  fi
-  # Remove docker context
-  docker context rm remote -f 2>/dev/null || true
-  # Report deployment status
-  if [ $exit_code -eq 0 ]; then
-    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
-  else
-    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
-  fi
-  exit $exit_code
-}
-
-# Set trap for cleanup early so it covers the whole script
-trap cleanup EXIT
 
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
