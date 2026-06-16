@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 
 execute_ssh(){
   echo "Execute Over SSH: $@"
@@ -75,14 +75,14 @@ validate_input() {
   local input_value="$2"
   
   # Check for shell metacharacters that could cause command injection
-  if echo "$input_value" | grep -q '[;&|`$()'"'"'"]'; then
-    echo "Error: $input_name contains dangerous characters: $input_value"
+  if [[ "$input_value" =~ [\;\&\|\`\$\(\)\'\"]] ]]; then
+    echo "Error: $input_name contains dangerous characters"
     exit 1
   fi
   
   # Check for path traversal attempts
-  if echo "$input_value" | grep -q '\.\.'; then
-    echo "Error: $input_name contains path traversal attempts: $input_value"
+  if [[ "$input_value" == *..* ]]; then
+    echo "Error: $input_name contains path traversal attempts"
     exit 1
   fi
 }
@@ -90,6 +90,11 @@ validate_input() {
 validate_input "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
+
+# Validate pre_deployment_command_args if set (it's user input passed to SSH)
+if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS:-}" ]; then
+  validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+fi
 
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then

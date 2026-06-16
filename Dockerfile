@@ -1,4 +1,4 @@
-FROM docker:latest
+FROM docker:27
 
 LABEL 'name'='Docker Deployment Action'
 LABEL 'com.github.actions.name'='Docker Deployment'
@@ -8,7 +8,7 @@ LABEL 'com.github.actions.color'='green'
 
 # Install SSH client, curl and Docker Compose
 RUN apk --no-cache add openssh-client curl bash \
-    && curl -L "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose \
+    && curl -L "https://github.com/docker/compose/releases/download/v2.30.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose \
     && chmod +x /usr/local/bin/docker-compose
 
 # Create non-root user for security
