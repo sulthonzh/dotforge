@@ -42,7 +42,7 @@ if [ -z "${INPUT_DEPLOY_PATH+x}" ]; then
 fi
 
 if [ -z "${INPUT_STACK_FILE_NAME+x}" ]; then
-  INPUT_STACK_FILE_NAME=docker-compose.yaml
+  INPUT_STACK_FILE_NAME=docker-compose.yml
 fi
 
 if [ -z "${INPUT_DEPLOYMENT_MODE+x}" ]; then
@@ -68,6 +68,21 @@ fi
 if [ -z "${INPUT_DOCKER_PRUNE+x}" ]; then
   INPUT_DOCKER_PRUNE=false
 fi
+
+# Normalize boolean inputs: accept true/True/TRUE/yes/1 as true, everything else false
+normalize_bool() {
+  local value="$1"
+  local lowered
+  lowered=$(echo "$value" | tr '[:upper:]' '[:lower:]')
+  case "$lowered" in
+    true|yes|1) echo "true" ;;
+    *) echo "false" ;;
+  esac
+}
+
+INPUT_COPY_STACK_FILE=$(normalize_bool "$INPUT_COPY_STACK_FILE")
+INPUT_DOCKER_PRUNE=$(normalize_bool "$INPUT_DOCKER_PRUNE")
+INPUT_PULL_IMAGES_FIRST=$(normalize_bool "$INPUT_PULL_IMAGES_FIRST")
 
 # Input validation to prevent shell injection and path traversal
 validate_input() {
@@ -114,13 +129,18 @@ else
   DEPLOYMENT_COMMAND_OPTIONS=" --log-level debug --host ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT"
 fi
 
-case $INPUT_DEPLOYMENT_MODE in
+case "$INPUT_DEPLOYMENT_MODE" in
 
   docker-swarm)
     DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file $STACK_FILE"
   ;;
 
+  docker-compose)
+    DEPLOYMENT_COMMAND="docker-compose -f $STACK_FILE $DEPLOYMENT_COMMAND_OPTIONS"
+  ;;
+
   *)
+    echo "Warning: Unknown deployment_mode '$INPUT_DEPLOYMENT_MODE', falling back to docker-compose"
     INPUT_DEPLOYMENT_MODE="docker-compose"
     DEPLOYMENT_COMMAND="docker-compose -f $STACK_FILE $DEPLOYMENT_COMMAND_OPTIONS"
   ;;
