@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+set -o pipefail
 
 execute_ssh(){
   echo "Execute Over SSH: $@"
@@ -42,7 +43,7 @@ if [ -z "${INPUT_DEPLOY_PATH+x}" ]; then
 fi
 
 if [ -z "${INPUT_STACK_FILE_NAME+x}" ]; then
-  INPUT_STACK_FILE_NAME=docker-compose.yaml
+  INPUT_STACK_FILE_NAME=docker-compose.yml
 fi
 
 if [ -z "${INPUT_DEPLOYMENT_MODE+x}" ]; then
@@ -91,6 +92,17 @@ validate_input "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
 
+# Validate optional inputs that are used in commands
+if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ]; then
+  validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+fi
+if [ ! -z "${INPUT_DOCKER_REGISTRY_URI+x}" ]; then
+  validate_input "docker_registry_uri" "$INPUT_DOCKER_REGISTRY_URI"
+fi
+if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ]; then
+  validate_input "docker_registry_username" "$INPUT_DOCKER_REGISTRY_USERNAME"
+fi
+
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
   echo "Error: remote_docker_port must be a number: $INPUT_REMOTE_DOCKER_PORT"
@@ -127,6 +139,30 @@ case $INPUT_DEPLOYMENT_MODE in
 esac
 
 SSH_HOST=${INPUT_REMOTE_DOCKER_HOST#*@}
+
+# Define cleanup function BEFORE any sensitive operations
+cleanup() {
+  local exit_code=$?
+  echo "Cleaning up..."
+  # Remove SSH keys
+  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+  # Kill SSH agent if running
+  if [ -n "${SSH_AGENT_PID:-}" ]; then
+    kill $SSH_AGENT_PID 2>/dev/null || true
+  fi
+  # Remove docker context
+  docker context rm remote -f 2>/dev/null || true
+  # Report deployment status
+  if [ $exit_code -eq 0 ]; then
+    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
+  else
+    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
+  fi
+  exit $exit_code
+}
+
+# Set trap BEFORE registering keys so cleanup always runs
+trap cleanup EXIT
 
 echo "Registering SSH keys..."
 
@@ -182,29 +218,7 @@ if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
   fi
 fi
 
-# Cleanup function to remove SSH keys and agent
-cleanup() {
-  local exit_code=$?
-  echo "Cleaning up..."
-  # Remove SSH keys
-  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
-  # Kill SSH agent if running
-  if [ -n "${SSH_AGENT_PID:-}" ]; then
-    kill $SSH_AGENT_PID 2>/dev/null || true
-  fi
-  # Remove docker context
-  docker context rm remote -f 2>/dev/null || true
-  # Report deployment status
-  if [ $exit_code -eq 0 ]; then
-    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
-  else
-    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
-  fi
-  exit $exit_code
-}
-
-# Set trap for cleanup early so it covers the whole script
-trap cleanup EXIT
+# Cleanup trap is already set before SSH key registration above
 
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
