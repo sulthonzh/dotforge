@@ -42,7 +42,7 @@ if [ -z "${INPUT_DEPLOY_PATH+x}" ]; then
 fi
 
 if [ -z "${INPUT_STACK_FILE_NAME+x}" ]; then
-  INPUT_STACK_FILE_NAME=docker-compose.yaml
+  INPUT_STACK_FILE_NAME=docker-compose.yml
 fi
 
 if [ -z "${INPUT_DEPLOYMENT_MODE+x}" ]; then
@@ -122,7 +122,7 @@ case $INPUT_DEPLOYMENT_MODE in
 
   *)
     INPUT_DEPLOYMENT_MODE="docker-compose"
-    DEPLOYMENT_COMMAND="docker-compose -f $STACK_FILE $DEPLOYMENT_COMMAND_OPTIONS"
+    DEPLOYMENT_COMMAND="docker compose -f $STACK_FILE $DEPLOYMENT_COMMAND_OPTIONS"
   ;;
 esac
 
