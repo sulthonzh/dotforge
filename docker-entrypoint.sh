@@ -42,7 +42,7 @@ if [ -z "${INPUT_DEPLOY_PATH+x}" ]; then
 fi
 
 if [ -z "${INPUT_STACK_FILE_NAME+x}" ]; then
-  INPUT_STACK_FILE_NAME=docker-compose.yaml
+  INPUT_STACK_FILE_NAME=docker-compose.yml
 fi
 
 if [ -z "${INPUT_DEPLOYMENT_MODE+x}" ]; then
@@ -202,6 +202,9 @@ cleanup() {
   fi
   exit $exit_code
 }
+
+# GITHUB_OUTPUT file path required for composite/container actions
+GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/null}
 
 # Set trap for cleanup early so it covers the whole script
 trap cleanup EXIT
