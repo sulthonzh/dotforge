@@ -69,6 +69,9 @@ if [ -z "${INPUT_DOCKER_PRUNE+x}" ]; then
   INPUT_DOCKER_PRUNE=false
 fi
 
+# Initialize temp_passwd_file before any conditional assignment
+temp_passwd_file=""
+
 # Input validation to prevent shell injection and path traversal
 validate_input() {
   local input_name="$1"
@@ -90,6 +93,11 @@ validate_input() {
 validate_input "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
+
+# Validate pre_deployment_command_args if provided
+if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" ]; then
+  validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+fi
 
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
@@ -158,7 +166,7 @@ if ! docker context use remote; then
   exit 1
 fi
 
-if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ]; then
+if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ ! -z "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
   echo "Connecting to $INPUT_DOCKER_REGISTRY_URI..."
   # Use a temporary file for the password to avoid leaving it in process lists
   temp_passwd_file="$(mktemp)"
@@ -188,6 +196,10 @@ cleanup() {
   echo "Cleaning up..."
   # Remove SSH keys
   rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+  # Remove temporary password file if it was created
+  if [ -n "${temp_passwd_file}" ] && [ -f "$temp_passwd_file" ]; then
+    rm -f "$temp_passwd_file"
+  fi
   # Kill SSH agent if running
   if [ -n "${SSH_AGENT_PID:-}" ]; then
     kill $SSH_AGENT_PID 2>/dev/null || true
