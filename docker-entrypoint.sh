@@ -95,7 +95,7 @@ validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
 
 # Validate pre_deployment_command_args if provided
-if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" ]; then
+if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" ]; then
   validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
 fi
 
@@ -116,7 +116,7 @@ INPUT_KEEP_FILES=$((INPUT_KEEP_FILES+1))
 STACK_FILE=${INPUT_STACK_FILE_NAME}
 DEPLOYMENT_COMMAND_OPTIONS=""
 
-if [ "$INPUT_COPY_STACK_FILE" == "true" ]; then
+if [ "$INPUT_COPY_STACK_FILE" = "true" ]; then
   STACK_FILE="$INPUT_DEPLOY_PATH/$STACK_FILE"
 else
   DEPLOYMENT_COMMAND_OPTIONS=" --log-level debug --host ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT"
@@ -201,7 +201,7 @@ cleanup() {
     rm -f "$temp_passwd_file"
   fi
   # Kill SSH agent if running
-  if [ -n "${SSH_AGENT_PID:-}" ]; then
+  if [ -n "${SSH_AGENT_PID+x}" ] && [ -n "$SSH_AGENT_PID" ]; then
     kill $SSH_AGENT_PID 2>/dev/null || true
   fi
   # Remove docker context
@@ -247,25 +247,25 @@ if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] && [ "$INPUT_DEPLOYMENT_MODE" = 'dock
   if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
     execute_ssh "${DEPLOYMENT_COMMAND} pull"
   else
-    ${DEPLOYMENT_COMMAND} pull 2>&1
+    eval "${DEPLOYMENT_COMMAND} pull" 2>&1
   fi
 fi
 
 # Run pre-deployment commands if specified (both modes)
-if [ ! -z "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
+if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
   echo "Running pre-deployment commands..."
   if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
-    execute_ssh "${DEPLOYMENT_COMMAND} $INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+    execute_ssh "${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}"
   else
-    ${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS} 2>&1
+    eval "${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" 2>&1
   fi
 fi
 
 # Run deployment
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Running deployment..."
-  execute_ssh "${DEPLOYMENT_COMMAND} $INPUT_ARGS"
+  execute_ssh "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
 else
   echo "Connecting to $INPUT_REMOTE_DOCKER_HOST... Command: ${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
-  ${DEPLOYMENT_COMMAND} ${INPUT_ARGS} 2>&1
+  eval "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}" 2>&1
 fi
