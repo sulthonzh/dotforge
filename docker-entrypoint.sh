@@ -237,7 +237,7 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   fi
 
   # Create symlink and clean up old files
-  execute_ssh "ln -nfs $INPUT_DEPLOY_PATH/stacks/$FILE_NAME $INPUT_DEPLOY_PATH/$INPUT_STACK_FILE_NAME"
+  execute_ssh "ln -nfs \"$INPUT_DEPLOY_PATH/stacks/$FILE_NAME\" \"$INPUT_DEPLOY_PATH/$INPUT_STACK_FILE_NAME\""
   execute_ssh "ls -t \"$INPUT_DEPLOY_PATH/stacks/docker-stack-*\" 2>/dev/null | tail -n +\"$INPUT_KEEP_FILES\" | xargs rm -- 2>/dev/null || true"
 fi
 
@@ -251,7 +251,7 @@ if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] && [ "$INPUT_DEPLOYMENT_MODE" = 'dock
   fi
 fi
 
-# Run pre-deployment commands if specified (both modes)
+# Run pre-deployment commands if specified (docker-compose mode)
 if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
   echo "Running pre-deployment commands..."
   if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
