@@ -5,7 +5,7 @@ execute_ssh(){
   echo "Execute Over SSH: $@"
   if ! ssh -q -t -i "$HOME/.ssh/id_rsa" \
       -o UserKnownHostsFile=/dev/null \
-      -p $INPUT_REMOTE_DOCKER_PORT \
+      -p "$INPUT_REMOTE_DOCKER_PORT" \
       -o StrictHostKeyChecking=no "$INPUT_REMOTE_DOCKER_HOST" "$@"; then
     echo "Error: SSH command failed: $@"
     exit 1
@@ -125,7 +125,7 @@ fi
 case $INPUT_DEPLOYMENT_MODE in
 
   docker-swarm)
-    DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file $STACK_FILE"
+    DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file \$STACK_FILE"
   ;;
 
   *)
@@ -148,11 +148,11 @@ eval $(ssh-agent)
 ssh-add ~/.ssh/id_rsa
 
 echo "Add known hosts"
-ssh-keyscan -p $INPUT_REMOTE_DOCKER_PORT "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "Warning: Could not scan SSH host key"
+ssh-keyscan -p "$INPUT_REMOTE_DOCKER_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "Warning: Could not scan SSH host key"
 
 echo "Creating docker context"
 # Remove existing context if it exists to avoid conflicts
-if docker context ls 2>/dev/null | grep -q "remote"; then
+if docker context ls 2>/dev/null | grep -q '^remote '; then
   docker context rm remote -f 2>/dev/null || echo "Warning: Could not remove existing remote context"
 fi
 
@@ -264,7 +264,8 @@ fi
 # Run deployment
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Running deployment..."
-  execute_ssh "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
+  # Quote stack file for remote shell when using SSH
+  execute_ssh "${DEPLOYMENT_COMMAND/\$STACK_FILE/\"\$STACK_FILE\"} ${INPUT_ARGS}"
 else
   echo "Connecting to $INPUT_REMOTE_DOCKER_HOST... Command: ${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
   eval "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}" 2>&1
