@@ -223,14 +223,14 @@ trap cleanup EXIT
 
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
-  execute_ssh "mkdir -p $INPUT_DEPLOY_PATH/stacks || true"
+  execute_ssh "mkdir -p \"$INPUT_DEPLOY_PATH/stacks\" || true"
   FILE_NAME="docker-stack-$(date +%Y%m%d%H%M%S).yaml"
 
   # Copy stack file to remote server
   if ! scp -i "$HOME/.ssh/id_rsa" \
       -o UserKnownHostsFile=/dev/null \
       -o StrictHostKeyChecking=no \
-      -P $INPUT_REMOTE_DOCKER_PORT \
+      -P "$INPUT_REMOTE_DOCKER_PORT" \
       "$INPUT_STACK_FILE_NAME" "$INPUT_REMOTE_DOCKER_HOST:$INPUT_DEPLOY_PATH/stacks/$FILE_NAME"; then
     echo "Error: Failed to copy stack file"
     exit 1
@@ -238,7 +238,7 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
 
   # Create symlink and clean up old files
   execute_ssh "ln -nfs $INPUT_DEPLOY_PATH/stacks/$FILE_NAME $INPUT_DEPLOY_PATH/$INPUT_STACK_FILE_NAME"
-  execute_ssh "ls -t $INPUT_DEPLOY_PATH/stacks/docker-stack-* 2>/dev/null | tail -n +$INPUT_KEEP_FILES | xargs rm --  2>/dev/null || true"
+  execute_ssh "ls -t \"$INPUT_DEPLOY_PATH/stacks/docker-stack-*\" 2>/dev/null | tail -n +\"$INPUT_KEEP_FILES\" | xargs rm -- 2>/dev/null || true"
 fi
 
 # Pull images if requested (both modes)

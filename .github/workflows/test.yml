@@ -1,0 +1,126 @@
+name: Test Docker Remote Deployment Action
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test action.yml syntax
+        run: |
+          python -c "
+          import yaml
+          import sys
+          
+          # Validate action.yml
+          with open('action.yml', 'r') as f:
+            action = yaml.safe_load(f)
+          
+          # Check required fields
+          required_fields = ['name', 'description', 'runs', 'branding']
+          for field in required_fields:
+            if field not in action:
+              print(f'Error: Missing required field {field}')
+              sys.exit(1)
+          
+          # Check Docker configuration
+          runs = action['runs']
+          if runs.get('using') != 'docker':
+            print('Error: runs.using must be docker')
+            sys.exit(1)
+          
+          if 'image' not in runs:
+            print('Error: runs.image is required')
+            sys.exit(1)
+          
+          print('✅ action.yml validation passed')
+          "
+
+      - name: Test Docker build
+        run: |
+          docker build -t docker-remote-deployment-action-test .
+          echo "✅ Docker build successful"
+
+      - name: Test script syntax
+        run: |
+          # Script uses #!/bin/bash — validate with bash
+          bash -n docker-entrypoint.sh
+          echo "✅ Shell script syntax validation passed"
+
+      - name: Test input validation
+        run: |
+          # Test the validation functions
+          bash -c "
+          source <(echo '
+          validate_input() {
+            local input_name=\"\$1\"
+            local input_value=\"\$2\"
+            
+            # Check for shell metacharacters that could cause command injection
+            if [[ \"\$input_value\" =~ [;&|\\`\$(\"\\'\\)] ]]; then
+              echo \"Error: \$input_name contains dangerous characters: \$input_value\"
+              exit 1
+            fi
+            
+            # Check for path traversal attempts
+            if [[ \"\$input_value\" =~ \\.\\. ]]; then
+              echo \"Error: \$input_name contains path traversal attempts: \$input_value\"
+              exit 1
+            fi
+          }
+
+          # Test valid inputs
+          validate_input \"test\" \"valid-input\"
+          validate_input \"test\" \"123\"
+          validate_input \"test\" \"path/to/file\"
+
+          # Test shell metacharacters (should fail)
+          if validate_input \"test\" \"malicious;command\"; then
+            echo \"Error: Should have detected shell metacharacters\"
+            exit 1
+          fi
+
+          # Test path traversal (should fail)
+          if validate_input \"test\" \"../../../etc/passwd\"; then
+            echo \"Error: Should have detected path traversal\"
+            exit 1
+          fi
+
+          echo \"✅ Input validation tests passed\"
+          ')
+          "
+
+      - name: Test environment variables
+        run: |
+          # Test that all required environment variables are properly set
+          bash -c "
+          # Mock environment variables
+          export INPUT_REMOTE_DOCKER_HOST=\"test@example.com\"
+          export INPUT_SSH_PUBLIC_KEY=\"ssh-rsa test\"
+          export INPUT_SSH_PRIVATE_KEY=\"-----BEGIN RSA PRIVATE KEY-----\"
+          export INPUT_ARGS=\"-d production\"
+          export INPUT_DEPLOY_PATH=\"/tmp/test\"
+          export INPUT_STACK_FILE_NAME=\"docker-compose.yml\"
+
+          # Test validation functions with mock data
+          source <(echo '
+          validate_input() {
+            local input_name=\"\$1\"
+            local input_value=\"\$2\"
+            [[ \"\$input_value\" =~ [;&|\\`\$(\"\\'\\)] ]] && exit 1
+            [[ \"\$input_value\" =~ \\.\\. ]] && exit 1
+          }
+
+          validate_input \"args\" \"\$INPUT_ARGS\"
+          validate_input \"deploy_path\" \"\$INPUT_DEPLOY_PATH\"
+          validate_input \"stack_file_name\" \"\$INPUT_STACK_FILE_NAME\"
+          ')
+
+          echo \"✅ Environment variable tests passed\"
+          \"

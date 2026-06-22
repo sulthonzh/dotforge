@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  release:
+    types:
+      - created
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Run basic tests
+        run: |
+          echo "Testing action.yml..."
+          python -c "
+          import yaml
+          import sys
+          
+          # Validate action.yml
+          with open('action.yml', 'r') as f:
+            action = yaml.safe_load(f)
+          
+          # Check required fields
+          required_fields = ['name', 'description', 'runs', 'branding']
+          for field in required_fields:
+            if field not in action:
+              print(f'Error: Missing required field {field}')
+              sys.exit(1)
+          
+          # Check Docker configuration
+          runs = action['runs']
+          if runs.get('using') != 'docker':
+            print('Error: runs.using must be docker')
+            sys.exit(1)
+          
+          if 'image' not in runs:
+            print('Error: runs.image is required')
+            sys.exit(1)
+          
+          print('✅ action.yml validation passed')
+          "
+
+  build:
+
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: sulthonzh/docker-remote-deployment-action
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
