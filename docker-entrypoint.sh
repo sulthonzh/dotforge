@@ -78,7 +78,7 @@ validate_input() {
   local input_value="$2"
   
   # Check for shell metacharacters that could cause command injection
-  if echo "$input_value" | grep -q '[;&|`$()'"'"'"]'; then
+  if echo "$input_value" | grep -q '[;&|`\$()'"'"'"]'; then
     echo "Error: $input_name contains dangerous characters: $input_value"
     exit 1
   fi
@@ -238,7 +238,7 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
 
   # Create symlink and clean up old files
   execute_ssh "ln -nfs \"$INPUT_DEPLOY_PATH/stacks/$FILE_NAME\" \"$INPUT_DEPLOY_PATH/$INPUT_STACK_FILE_NAME\""
-  execute_ssh "ls -t \"$INPUT_DEPLOY_PATH/stacks/docker-stack-*\" 2>/dev/null | tail -n +\"$INPUT_KEEP_FILES\" | xargs rm -- 2>/dev/null || true"
+  execute_ssh "cd \"$INPUT_DEPLOY_PATH/stacks\" && ls -t docker-stack-* 2>/dev/null | tail -n +$INPUT_KEEP_FILES | while read -r file; do rm -f \"$file\" 2>/dev/null; done || true"
 fi
 
 # Pull images if requested (both modes)
