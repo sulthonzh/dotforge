@@ -120,7 +120,7 @@ jobs:
 | `keep_files` | Number of files to keep | `4` |
 | `docker_prune` | Run docker system prune | `false` |
 | `pre_deployment_command_args` | Pre-deployment commands (docker-compose mode only) | |
-| `pull_images_first` | Pull images before deploying (docker-compose mode only) | `false` |
+| `pull_images_first` | Pull images before deploying (docker-compose mode only, silently skipped for docker-swarm) | `false` |
 | `docker_registry_username` | Registry username | |
 | `docker_registry_password` | Registry password | |
 | `docker_registry_uri` | Registry URI | `https://registry.hub.docker.com` |

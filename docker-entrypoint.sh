@@ -152,8 +152,9 @@ chmod 600 ~/.ssh/id_rsa.pub
 eval $(ssh-agent)
 ssh-add ~/.ssh/id_rsa
 
-echo "Add known hosts"
-ssh-keyscan -p "$INPUT_REMOTE_DOCKER_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "Warning: Could not scan SSH host key"
+# Note: ssh-keyscan was removed — execute_ssh uses UserKnownHostsFile=/dev/null and
+# StrictHostKeyChecking=no, so known_hosts is never consulted. The keyscan added
+# 5-10s latency and could hang on unreachable hosts for nothing.
 
 echo "Creating docker context"
 # Remove existing context if it exists to avoid conflicts
@@ -246,13 +247,17 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   execute_ssh "cd \"$INPUT_DEPLOY_PATH/stacks\" && ls -t docker-stack-* 2>/dev/null | tail -n +$INPUT_KEEP_FILES | while read -r file; do rm -f \"\$file\" 2>/dev/null; done || true"
 fi
 
-# Pull images if requested (both modes)
-if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
-  echo "Pulling images first..."
-  if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
-    execute_ssh "${DEPLOYMENT_COMMAND} pull"
+# Pull images if requested
+if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] ; then
+  if [ "$INPUT_DEPLOYMENT_MODE" != 'docker-compose' ] ; then
+    echo "Warning: pull_images_first is only supported in docker-compose mode, skipping pull."
   else
-    eval "${DEPLOYMENT_COMMAND} pull" 2>&1
+    echo "Pulling images first..."
+    if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
+      execute_ssh "${DEPLOYMENT_COMMAND} pull"
+    else
+      eval "${DEPLOYMENT_COMMAND} pull" 2>&1
+    fi
   fi
 fi
 
