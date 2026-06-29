@@ -139,7 +139,38 @@ case $INPUT_DEPLOYMENT_MODE in
   ;;
 esac
 
-SSH_HOST=${INPUT_REMOTE_DOCKER_HOST#*@}
+# GITHUB_OUTPUT file path required for composite/container actions
+GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/null}
+
+# Cleanup function to remove SSH keys and agent
+# Must be registered BEFORE any sensitive resources (keys, agent) are created
+# so that failures during key registration, context creation, or login still clean up.
+cleanup() {
+  local exit_code=$?
+  echo "Cleaning up..."
+  # Remove SSH keys
+  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+  # Remove temporary password file if it was created
+  if [ -n "${temp_passwd_file}" ] && [ -f "$temp_passwd_file" ]; then
+    rm -f "$temp_passwd_file"
+  fi
+  # Kill SSH agent if running
+  if [ -n "${SSH_AGENT_PID+x}" ] && [ -n "$SSH_AGENT_PID" ]; then
+    kill $SSH_AGENT_PID 2>/dev/null || true
+  fi
+  # Remove docker context
+  docker context rm remote -f 2>/dev/null || true
+  # Report deployment status
+  if [ $exit_code -eq 0 ]; then
+    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
+  else
+    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
+  fi
+  exit $exit_code
+}
+
+# Set trap before any resource creation so it covers the entire lifecycle
+trap cleanup EXIT
 
 echo "Registering SSH keys..."
 
@@ -195,37 +226,6 @@ if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
     exit 1
   fi
 fi
-
-# Cleanup function to remove SSH keys and agent
-cleanup() {
-  local exit_code=$?
-  echo "Cleaning up..."
-  # Remove SSH keys
-  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
-  # Remove temporary password file if it was created
-  if [ -n "${temp_passwd_file}" ] && [ -f "$temp_passwd_file" ]; then
-    rm -f "$temp_passwd_file"
-  fi
-  # Kill SSH agent if running
-  if [ -n "${SSH_AGENT_PID+x}" ] && [ -n "$SSH_AGENT_PID" ]; then
-    kill $SSH_AGENT_PID 2>/dev/null || true
-  fi
-  # Remove docker context
-  docker context rm remote -f 2>/dev/null || true
-  # Report deployment status
-  if [ $exit_code -eq 0 ]; then
-    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
-  else
-    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
-  fi
-  exit $exit_code
-}
-
-# GITHUB_OUTPUT file path required for composite/container actions
-GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/null}
-
-# Set trap for cleanup early so it covers the whole script
-trap cleanup EXIT
 
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
