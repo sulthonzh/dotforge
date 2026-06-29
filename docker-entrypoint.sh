@@ -118,7 +118,7 @@ fi
 # Increment keep_files for cleanup logic
 INPUT_KEEP_FILES=$((INPUT_KEEP_FILES+1))
 
-STACK_FILE=${INPUT_STACK_FILE_NAME}
+STACK_FILE="${INPUT_STACK_FILE_NAME}"
 DEPLOYMENT_COMMAND_OPTIONS=""
 
 if [ "$INPUT_COPY_STACK_FILE" = "true" ]; then
@@ -149,7 +149,7 @@ printf '%s\n' "$INPUT_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
 chmod 600 ~/.ssh/id_rsa
 printf '%s\n' "$INPUT_SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
 chmod 600 ~/.ssh/id_rsa.pub
-eval $(ssh-agent)
+eval "$(ssh-agent)"
 ssh-add ~/.ssh/id_rsa
 
 # Note: ssh-keyscan was removed — execute_ssh uses UserKnownHostsFile=/dev/null and

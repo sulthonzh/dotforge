@@ -1,6 +1,6 @@
 # Docker Remote Deployment Action
 
-A [GitHub Action](https://github.com/marketplace/actions/docker-remote-deployment) that supports docker-compose and Docker Swarm deployments on a remote host using SSH. Enhanced with security improvements, better error handling, and comprehensive testing.
+Your CI/CD pipeline needs to deploy containers to a remote Docker host. You don't want to write another 200-line bash script with SSH key management, error handling, and cleanup. This Action does it in 15 lines of YAML — with input validation, shell injection protection, and automatic SSH key cleanup.
 
 ## Features
 
@@ -212,6 +212,20 @@ Tests run automatically on push and pull requests.
 ### Debug Mode
 
 Enable debug logging by adding `--log-level debug` to your deployment command or setting the appropriate input parameter.
+
+## Comparison
+
+| Feature | This Action | ssh-deploy | appleboy/ssh-action | Manual SSH Script |
+|---------|------------|------------|--------------------|-------------------|
+| Docker Compose support | ✅ | ❌ | ❌ | DIY |
+| Docker Swarm support | ✅ | ❌ | ❌ | DIY |
+| Shell injection validation | ✅ | ❌ | ❌ | Maybe |
+| Path traversal protection | ✅ | ❌ | ❌ | Maybe |
+| Automatic key cleanup | ✅ | ❌ | ❌ | No |
+| Private registry login | ✅ | ❌ | ❌ | DIY |
+| Stack file management | ✅ | ✅ | ❌ | DIY |
+| Non-root execution | ✅ | ❌ | ❌ | Maybe |
+| Docker prune | ✅ | ❌ | ❌ | DIY |
 
 ## License
 
