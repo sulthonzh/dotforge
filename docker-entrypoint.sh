@@ -78,19 +78,21 @@ validate_input() {
   local input_value="$2"
   
   # Check for shell metacharacters that could cause command injection
-  if echo "$input_value" | grep -q '[;&|`\$()'"'"'"<>]'; then
-    echo "Error: $input_name contains dangerous characters: $input_value"
+  # Use printf instead of echo to avoid -e/-n/-E being interpreted as echo flags
+  if printf '%s' "$input_value" | grep -q '[;&|`\$()'"'"'"<>]'; then
+    echo "Error: $input_name contains dangerous characters"
     exit 1
   fi
-  
-  # Check for control characters (newline, CR, tab, null) that could start new commands via eval
-  if printf '%s' "$input_value" | grep -qP '[\n\r\t\x00]'; then
-    echo "Error: $input_name contains control characters: $input_value"
+
+  # Check for control characters (newline, CR, tab, null) — POSIX-compatible for BusyBox/Alpine
+  # grep -qP (Perl regex) is unavailable on BusyBox grep, so we use literal bytes via printf
+  if printf '%s' "$input_value" | grep -q "$(printf '[\n\r\t\000]')"; then
+    echo "Error: $input_name contains control characters"
     exit 1
   fi
   # Check for path traversal attempts
-  if echo "$input_value" | grep -q '\.\.'; then
-    echo "Error: $input_name contains path traversal attempts: $input_value"
+  if printf '%s' "$input_value" | grep -q '\.\.'; then
+    echo "Error: $input_name contains path traversal attempts"
     exit 1
   fi
 }
@@ -218,7 +220,8 @@ if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGI
 fi
 
 if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
-  echo "WARNING: This will remove unused images, containers, networks, and volumes."
+  echo "WARNING: This will remove unused images, containers, and networks."
+  echo "Note: Volumes are NOT removed (no --volumes flag). Add --volumes to the prune command if volume cleanup is needed."
   echo "This is a destructive operation that cannot be undone."
   echo "Proceeding with docker prune automatically..."
   if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a -f; then
