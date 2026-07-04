@@ -97,6 +97,7 @@ validate_input() {
   fi
 }
 
+validate_input "remote_docker_host" "$INPUT_REMOTE_DOCKER_HOST"
 validate_input "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
@@ -104,6 +105,15 @@ validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
 # Validate pre_deployment_command_args if provided
 if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" ]; then
   validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+fi
+
+# Validate registry inputs if provided
+if [ -n "${INPUT_DOCKER_REGISTRY_URI+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_URI}" ]; then
+  validate_input "docker_registry_uri" "$INPUT_DOCKER_REGISTRY_URI"
+fi
+
+if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_USERNAME}" ]; then
+  validate_input "docker_registry_username" "$INPUT_DOCKER_REGISTRY_USERNAME"
 fi
 
 # Ensure numeric inputs are valid numbers
