@@ -249,7 +249,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Enhanced security with input validation
 - Added comprehensive test suite
 - Improved error handling
-- Updated Docker Compose to v2.29.2
+- Updated Docker Compose to v2.30.3
 - Added non-root user support
 - Fixed interactive prompt issue
 

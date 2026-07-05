@@ -229,17 +229,6 @@ if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGI
   rm -f "$temp_passwd_file"
 fi
 
-if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
-  echo "WARNING: This will remove unused images, containers, and networks."
-  echo "Note: Volumes are NOT removed (no --volumes flag). Add --volumes to the prune command if volume cleanup is needed."
-  echo "This is a destructive operation that cannot be undone."
-  echo "Proceeding with docker prune automatically..."
-  if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a -f; then
-    echo "Error: Docker prune failed"
-    exit 1
-  fi
-fi
-
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Copying stack file to remote server..."
   execute_ssh "mkdir -p \"$INPUT_DEPLOY_PATH/stacks\" || true"
@@ -292,4 +281,16 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
 else
   echo "Connecting to $INPUT_REMOTE_DOCKER_HOST... Command: ${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
   eval "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}" 2>&1
+fi
+
+# Run docker system prune AFTER deployment so we don't remove images needed for deployment
+if [ "$INPUT_DOCKER_PRUNE" = 'true' ] ; then
+  echo "WARNING: This will remove unused images, containers, and networks."
+  echo "Note: Volumes are NOT removed (no --volumes flag). Add --volumes to the prune command if volume cleanup is needed."
+  echo "This is a destructive operation that cannot be undone."
+  echo "Proceeding with docker prune automatically..."
+  if ! docker --log-level debug --host "ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT" system prune -a -f; then
+    echo "Error: Docker prune failed"
+    exit 1
+  fi
 fi
