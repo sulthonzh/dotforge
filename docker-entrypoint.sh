@@ -116,6 +116,10 @@ if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY
   validate_input "docker_registry_username" "$INPUT_DOCKER_REGISTRY_USERNAME"
 fi
 
+if [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
+  validate_input "docker_registry_password" "$INPUT_DOCKER_REGISTRY_PASSWORD"
+fi
+
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
   echo "Error: remote_docker_port must be a number: $INPUT_REMOTE_DOCKER_PORT"

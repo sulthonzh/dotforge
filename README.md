@@ -2,6 +2,8 @@
 
 Your CI/CD pipeline needs to deploy containers to a remote Docker host. You don't want to write another 200-line bash script with SSH key management, error handling, and cleanup. This Action does it in 15 lines of YAML — with input validation, shell injection protection, and automatic SSH key cleanup.
 
+Note: The entrypoint script is `docker-entrypoint.sh` (not `docker_compose_deployment.sh`).
+
 ## Features
 
 - **Security Enhanced**: Input validation, path traversal protection, and safe command execution
