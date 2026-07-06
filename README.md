@@ -213,7 +213,7 @@ Tests run automatically on push and pull requests.
 
 ### Debug Mode
 
-Enable debug logging by adding `--log-level debug` to your deployment command or setting the appropriate input parameter.
+When `copy_stack_file` is `false` (default), the action passes `--log-level debug` to Docker Compose automatically. To get additional diagnostic output, enable [GitHub Actions step debug logging](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/enabling-debug-logging#enabling-step-debug-logging) by setting the `ACTIONS_STEP_DEBUG` secret to `true` in your repository.
 
 ## Comparison
 

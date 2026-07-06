@@ -116,9 +116,9 @@ if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY
   validate_input "docker_registry_username" "$INPUT_DOCKER_REGISTRY_USERNAME"
 fi
 
-if [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
-  validate_input "docker_registry_password" "$INPUT_DOCKER_REGISTRY_PASSWORD"
-fi
+# Note: docker_registry_password is intentionally NOT validated via validate_input.
+# Passwords commonly contain $, (), etc. that validate_input blocks. The password is
+# safely handled via temp file + --password-file, never used in shell expansion.
 
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
