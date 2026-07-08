@@ -84,12 +84,14 @@ validate_input() {
     exit 1
   fi
 
-  # Check for control characters (newline, CR, tab, null) — POSIX-compatible for BusyBox/Alpine
-  # grep -qP (Perl regex) is unavailable on BusyBox grep, so we use literal bytes via printf
-  if printf '%s' "$input_value" | grep -q "$(printf '[\n\r\t\000]')"; then
-    echo "Error: $input_name contains control characters"
-    exit 1
-  fi
+  # Check for control characters (newline, CR, tab) using case statement
+  # POSIX-compatible, works in BusyBox/Alpine without grep bracket expression issues
+  case "$input_value" in
+    *$'\n'*|*$'\r'*|*$'\t'*)
+      echo "Error: $input_name contains control characters"
+      exit 1
+      ;;
+  esac
   # Check for path traversal attempts
   if printf '%s' "$input_value" | grep -q '\.\.'; then
     echo "Error: $input_name contains path traversal attempts"
@@ -132,7 +134,8 @@ if ! [[ "$INPUT_KEEP_FILES" =~ ^[0-9]+$ ]]; then
 fi
 
 # Increment keep_files for cleanup logic
-INPUT_KEEP_FILES=$((INPUT_KEEP_FILES+1))
+# Use 10# prefix to force base-10 interpretation (leading zeros would cause octal parsing)
+INPUT_KEEP_FILES=$((10#$INPUT_KEEP_FILES+1))
 
 STACK_FILE="${INPUT_STACK_FILE_NAME}"
 DEPLOYMENT_COMMAND_OPTIONS=""
