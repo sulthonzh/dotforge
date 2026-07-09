@@ -179,7 +179,7 @@ Tests run automatically on push and pull requests.
 
 ### Performance
 1. **Use Copy Stack File**: Set `copy_stack_file: true` for better performance
-2. **Pull Images First**: Use `pull_images_first: true` to reduce deployment time
+2. **Pull Images First**: Use `pull_images_first: true` to reduce deployment time (runs after pre-deployment validation, before deployment)
 3. **Manage File Count**: Adjust `keep_files` based on your storage needs
 
 ### Monitoring

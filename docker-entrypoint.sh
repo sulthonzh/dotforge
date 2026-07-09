@@ -256,27 +256,29 @@ if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   execute_ssh "cd \"$INPUT_DEPLOY_PATH/stacks\" && ls -t docker-stack-* 2>/dev/null | tail -n +$INPUT_KEEP_FILES | while read -r file; do rm -f \"\$file\" 2>/dev/null; done || true"
 fi
 
-# Pull images if requested
-if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] ; then
-  if [ "$INPUT_DEPLOYMENT_MODE" != 'docker-compose' ] ; then
-    echo "Warning: pull_images_first is only supported in docker-compose mode, skipping pull."
-  else
-    echo "Pulling images first..."
-    if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
-      execute_ssh "${DEPLOYMENT_COMMAND} pull"
-    else
-      eval "${DEPLOYMENT_COMMAND} pull" 2>&1
-    fi
-  fi
-fi
-
 # Run pre-deployment commands if specified (docker-compose mode)
+# Pre-deployment commands (e.g., 'config' validation) must run BEFORE pulling images
+# so that invalid configs fail fast without wasting bandwidth on image pulls.
 if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ "$INPUT_DEPLOYMENT_MODE" = 'docker-compose' ] ; then
   echo "Running pre-deployment commands..."
   if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
     execute_ssh "${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}"
   else
     eval "${DEPLOYMENT_COMMAND} ${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" 2>&1
+  fi
+fi
+
+# Pull images if requested (after pre-deployment validation, before deployment)
+if [ "$INPUT_PULL_IMAGES_FIRST" = 'true' ] ; then
+  if [ "$INPUT_DEPLOYMENT_MODE" != 'docker-compose' ] ; then
+    echo "Warning: pull_images_first is only supported in docker-compose mode, skipping pull."
+  else
+    echo "Pulling images..."
+    if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
+      execute_ssh "${DEPLOYMENT_COMMAND} pull"
+    else
+      eval "${DEPLOYMENT_COMMAND} pull" 2>&1
+    fi
   fi
 fi
 
