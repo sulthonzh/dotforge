@@ -149,7 +149,7 @@ fi
 case $INPUT_DEPLOYMENT_MODE in
 
   docker-swarm)
-    DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file \$STACK_FILE"
+    DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file \"$STACK_FILE\""
   ;;
 
   *)
@@ -285,8 +285,7 @@ fi
 # Run deployment
 if [ "$INPUT_COPY_STACK_FILE" = 'true' ] ; then
   echo "Running deployment..."
-  # Quote stack file for remote shell when using SSH
-  execute_ssh "${DEPLOYMENT_COMMAND/\$STACK_FILE/\"\$STACK_FILE\"} ${INPUT_ARGS}"
+  execute_ssh "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
 else
   echo "Connecting to $INPUT_REMOTE_DOCKER_HOST... Command: ${DEPLOYMENT_COMMAND} ${INPUT_ARGS}"
   eval "${DEPLOYMENT_COMMAND} ${INPUT_ARGS}" 2>&1
