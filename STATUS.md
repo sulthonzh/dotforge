@@ -1,6 +1,6 @@
 # dotforge — Status
 
-**Last Updated:** 2026-07-10T12:47:00+07:00 (UTC 2026-07-10 05:47)
+**Last Updated:** 2026-07-10T14:08:00+07:00 (UTC 2026-07-10 07:08)
 **Project Type:** GitHub Action (Docker-based, shell entrypoint)
 **Current Status:** ✅ EXCEPTIONAL (13/13 criteria met)
 
@@ -77,12 +77,19 @@ README frames the problem (200-line bash scripts) vs the solution (15 lines of Y
 
 ## Known Gaps vs docker-remote-deployment-action
 
-`dotforge` is missing improvements that `docker-remote-deployment-action` has:
-1. No `pipefail` in shebang (`set -eu` only, should be `set -euo pipefail`)
-2. No cleanup trap (EXIT/SIGINT/SIGTERM)
-3. `temp_passwd_file` not initialized before potential trap use
-4. Less comprehensive `validate_input()` function
-5. Missing `validate_env_expansion()` function
-6. Missing SC2016 false-positive documentation
+All previously identified gaps have been resolved as of 2026-07-10:
+1. ✅ `pipefail` added to shebang (`set -euo pipefail`)
+2. ✅ Cleanup trap with EXIT/SIGINT/SIGTERM handling
+3. ✅ `temp_passwd_file` initialized before trap
+4. ✅ Enhanced `validate_input()` with empty check, path patterns, context-aware exemptions
+5. ✅ `validate_env_expansion()` function added
+6. ✅ SC2016 false-positive documentation added
+7. ✅ `remote_docker_host` format validation (`user@host`)
+8. ✅ Port range (1-65535) and `keep_files` minimum (>=1) validation
+9. ✅ Explicit error on invalid `deployment_mode` (was silently defaulting)
+10. ✅ `chmod 700 ~/.ssh` for proper directory permissions
+11. ✅ Quoted `$STACK_FILE` in docker-compose command
 
-**Recommendation:** Sync entrypoint improvements from docker-remote-deployment-action in a future cycle. The non-root user and Docker 28 base are advantages to keep.
+**Advantages over docker-remote-deployment-action:** Non-root user (`docker` uid 1001), Docker 28 (vs 26.1.0).
+
+**Remaining difference:** dotforge does not have remote-side `docker login` when `copy_stack_file=true` (docker-remote-deployment-action logs in on both local and remote). This is an enhancement, not a gap — dotforge users who need remote registry auth can include it in their pre_deployment_command_args.

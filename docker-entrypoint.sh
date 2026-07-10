@@ -1,14 +1,129 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
+# shellcheck disable=SC2016 # SC2016 false positives: single-quoting is intentional to prevent variable expansion in case/grep patterns
+
+# Initialize temp_passwd_file early (before trap) to prevent unbound variable errors in cleanup
+temp_passwd_file=""
+
+# Cleanup function to remove SSH keys, agent, docker context, and report deployment status.
+# Registered as trap BEFORE any sensitive resources are created so that failures during
+# key registration, context creation, or login still clean up.
+cleanup() {
+  local exit_code=$?
+  echo "Cleaning up..."
+  # Remove SSH keys
+  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub 2>/dev/null || true
+  # Remove temporary password file if it was created
+  if [ -n "${temp_passwd_file}" ] && [ -f "$temp_passwd_file" ]; then
+    rm -f "$temp_passwd_file"
+  fi
+  # Kill SSH agent if running
+  if [ -n "${SSH_AGENT_PID+x}" ] && [ -n "$SSH_AGENT_PID" ]; then
+    kill "$SSH_AGENT_PID" 2>/dev/null || true
+  fi
+  # Remove docker context
+  docker context rm remote -f 2>/dev/null || true
+  # Report deployment status via GITHUB_OUTPUT
+  GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/null}
+  if [ "$exit_code" -eq 0 ]; then
+    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
+  else
+    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
+  fi
+  exit "$exit_code"
+}
+
+# Set trap for cleanup on exit and signals.
+# ERR is intentionally omitted: under 'set -e', a failing command triggers ERR trap
+# (running cleanup), then the script exits triggering EXIT trap (running cleanup again).
+# EXIT alone covers all exit paths including signal-terminated and set -e failures.
+trap cleanup EXIT SIGINT SIGTERM
 
 execute_ssh(){
-  echo "Execute Over SSH: $@"
+  echo "Execute Over SSH: $*"
   if ! ssh -q -t -i "$HOME/.ssh/id_rsa" \
       -o UserKnownHostsFile=/dev/null \
+      -o StrictHostKeyChecking=no \
       -p "$INPUT_REMOTE_DOCKER_PORT" \
-      -o StrictHostKeyChecking=no "$INPUT_REMOTE_DOCKER_HOST" "$@"; then
-    echo "Error: SSH command failed: $@"
+      "$INPUT_REMOTE_DOCKER_HOST" "$@"; then
+    echo "Error: SSH command failed: $*"
     exit 1
+  fi
+}
+
+# Enhanced input validation to prevent shell injection and path traversal
+validate_input() {
+  local input_name="$1"
+  local input_value="$2"
+
+  # Check for empty input
+  if [ -z "$input_value" ]; then
+    echo "Error: $input_name cannot be empty"
+    exit 1
+  fi
+
+  # Check for shell metacharacters that could cause command injection
+  # Use printf instead of echo to avoid -e/-n/-E being interpreted as echo flags
+  if printf '%s' "$input_value" | grep -qE '[;&|`$()<>\"'"'"']'; then
+    echo "Error: $input_name contains dangerous characters that could cause command injection"
+    exit 1
+  fi
+
+  # Check for control characters (newline, CR, tab) using case statement
+  # POSIX-compatible, works in BusyBox/Alpine without grep bracket expression issues
+  case "$input_value" in
+    *$'\n'*|*$'\r'*|*$'\t'*)
+      echo "Error: $input_name contains control characters (newline/tab/null)"
+      exit 1
+      ;;
+  esac
+
+  # Check for path traversal attempts (..), absolute paths, and suspicious patterns
+  # Skip validation for args and stack_file_name as they may need special characters
+  # deploy_path legitimately uses absolute paths (/opt/...) and home expansion (~/...)
+  # so it is exempted from the /* and ~* checks, but still checked for ..
+  if [[ "$input_name" != "args" && "$input_name" != "stack_file_name" ]]; then
+    case "$input_value" in
+      *..*)
+        echo "Error: $input_name contains path traversal patterns (..)"
+        exit 1
+        ;;
+    esac
+    if [[ "$input_name" != "deploy_path" ]]; then
+      case "$input_value" in
+        /*|~*|'${'*|'$'*)
+          echo "Error: $input_name contains potentially dangerous path patterns"
+          exit 1
+          ;;
+      esac
+    fi
+  fi
+}
+
+# Reject environment variable expansion in values that should be literal paths
+# Must run after main validate_input to ensure it applies to all inputs including exempted ones
+# deploy_path is checked because it's expanded in shell commands, which could leak environment variables
+# args is excluded because it needs to pass through as-is to docker-compose/docker-swarm
+validate_env_expansion() {
+  local input_name="$1"
+  local input_value="$2"
+
+  if [[ "$input_name" != "args" ]]; then
+    case "$input_value" in
+      *'${'*|'$'*)
+        echo "Error: $input_name contains environment variable expansion patterns"
+        exit 1
+        ;;
+    esac
+  fi
+
+  # Additional URL-specific validation for docker_registry_uri
+  # Allow : and / for URLs but block command substitution patterns
+  if [ "$input_name" = "docker_registry_uri" ]; then
+    if printf '%s' "$input_value" | grep -qE '\$\(|`|\$\{'; then
+      echo "Error: docker_registry_uri contains command substitution patterns"
+      exit 1
+    fi
   fi
 }
 
@@ -17,9 +132,16 @@ if [ -z "${INPUT_REMOTE_DOCKER_PORT+x}" ]; then
   INPUT_REMOTE_DOCKER_PORT=22
 fi
 
+# Validate required inputs
 if [ -z "${INPUT_REMOTE_DOCKER_HOST+x}" ]; then
     echo "Error: Input remote_docker_host is required!"
     exit 1
+fi
+
+# Validate remote_docker_host format (should be user@host)
+if ! printf '%s' "$INPUT_REMOTE_DOCKER_HOST" | grep -qE '^[^@]+@[^@]+$'; then
+  echo "Error: remote_docker_host must be in format 'user@host'"
+  exit 1
 fi
 
 if [ -z "${INPUT_SSH_PUBLIC_KEY+x}" ]; then
@@ -37,6 +159,7 @@ if [ -z "${INPUT_ARGS+x}" ]; then
   exit 1
 fi
 
+# Set defaults for optional inputs
 if [ -z "${INPUT_DEPLOY_PATH+x}" ]; then
   INPUT_DEPLOY_PATH=~/docker-deployment
 fi
@@ -69,49 +192,26 @@ if [ -z "${INPUT_DOCKER_PRUNE+x}" ]; then
   INPUT_DOCKER_PRUNE=false
 fi
 
-# Initialize temp_passwd_file before any conditional assignment
-temp_passwd_file=""
-
-# Input validation to prevent shell injection and path traversal
-validate_input() {
-  local input_name="$1"
-  local input_value="$2"
-  
-  # Check for shell metacharacters that could cause command injection
-  # Use printf instead of echo to avoid -e/-n/-E being interpreted as echo flags
-  if printf '%s' "$input_value" | grep -q '[;&|`\$()'"'"'"<>]'; then
-    echo "Error: $input_name contains dangerous characters"
-    exit 1
-  fi
-
-  # Check for control characters (newline, CR, tab) using case statement
-  # POSIX-compatible, works in BusyBox/Alpine without grep bracket expression issues
-  case "$input_value" in
-    *$'\n'*|*$'\r'*|*$'\t'*)
-      echo "Error: $input_name contains control characters"
-      exit 1
-      ;;
-  esac
-  # Check for path traversal attempts
-  if printf '%s' "$input_value" | grep -q '\.\.'; then
-    echo "Error: $input_name contains path traversal attempts"
-    exit 1
-  fi
-}
-
+# Enhanced input validation
 validate_input "remote_docker_host" "$INPUT_REMOTE_DOCKER_HOST"
+validate_env_expansion "remote_docker_host" "$INPUT_REMOTE_DOCKER_HOST"
 validate_input "args" "$INPUT_ARGS"
+validate_env_expansion "args" "$INPUT_ARGS"
 validate_input "deploy_path" "$INPUT_DEPLOY_PATH"
+validate_env_expansion "deploy_path" "$INPUT_DEPLOY_PATH"
 validate_input "stack_file_name" "$INPUT_STACK_FILE_NAME"
+validate_env_expansion "stack_file_name" "$INPUT_STACK_FILE_NAME"
 
 # Validate pre_deployment_command_args if provided
 if [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS+x}" ] && [ -n "${INPUT_PRE_DEPLOYMENT_COMMAND_ARGS}" ]; then
   validate_input "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
+  validate_env_expansion "pre_deployment_command_args" "$INPUT_PRE_DEPLOYMENT_COMMAND_ARGS"
 fi
 
 # Validate registry inputs if provided
 if [ -n "${INPUT_DOCKER_REGISTRY_URI+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_URI}" ]; then
   validate_input "docker_registry_uri" "$INPUT_DOCKER_REGISTRY_URI"
+  validate_env_expansion "docker_registry_uri" "$INPUT_DOCKER_REGISTRY_URI"
 fi
 
 if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_USERNAME}" ]; then
@@ -124,12 +224,20 @@ fi
 
 # Ensure numeric inputs are valid numbers
 if ! [[ "$INPUT_REMOTE_DOCKER_PORT" =~ ^[0-9]+$ ]]; then
-  echo "Error: remote_docker_port must be a number: $INPUT_REMOTE_DOCKER_PORT"
+  echo "Error: remote_docker_port must be a number between 1 and 65535: $INPUT_REMOTE_DOCKER_PORT"
+  exit 1
+fi
+if [ "$INPUT_REMOTE_DOCKER_PORT" -lt 1 ] || [ "$INPUT_REMOTE_DOCKER_PORT" -gt 65535 ]; then
+  echo "Error: remote_docker_port must be between 1 and 65535: $INPUT_REMOTE_DOCKER_PORT"
   exit 1
 fi
 
 if ! [[ "$INPUT_KEEP_FILES" =~ ^[0-9]+$ ]]; then
-  echo "Error: keep_files must be a number: $INPUT_KEEP_FILES"
+  echo "Error: keep_files must be a positive integer: $INPUT_KEEP_FILES"
+  exit 1
+fi
+if [ "$INPUT_KEEP_FILES" -lt 1 ]; then
+  echo "Error: keep_files must be at least 1: $INPUT_KEEP_FILES"
   exit 1
 fi
 
@@ -146,55 +254,27 @@ else
   DEPLOYMENT_COMMAND_OPTIONS=" --log-level debug --host ssh://$INPUT_REMOTE_DOCKER_HOST:$INPUT_REMOTE_DOCKER_PORT"
 fi
 
-case $INPUT_DEPLOYMENT_MODE in
+case "$INPUT_DEPLOYMENT_MODE" in
 
   docker-swarm)
     DEPLOYMENT_COMMAND="docker $DEPLOYMENT_COMMAND_OPTIONS stack deploy --compose-file \"$STACK_FILE\""
   ;;
 
+  docker-compose)
+    DEPLOYMENT_COMMAND="docker-compose -f \"$STACK_FILE\" $DEPLOYMENT_COMMAND_OPTIONS"
+  ;;
+
   *)
-    INPUT_DEPLOYMENT_MODE="docker-compose"
-    DEPLOYMENT_COMMAND="docker-compose -f $STACK_FILE $DEPLOYMENT_COMMAND_OPTIONS"
+    echo "Error: deployment_mode must be 'docker-compose' or 'docker-swarm', got: $INPUT_DEPLOYMENT_MODE"
+    exit 1
   ;;
 esac
-
-# GITHUB_OUTPUT file path required for composite/container actions
-GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/null}
-
-# Cleanup function to remove SSH keys and agent
-# Must be registered BEFORE any sensitive resources (keys, agent) are created
-# so that failures during key registration, context creation, or login still clean up.
-cleanup() {
-  local exit_code=$?
-  echo "Cleaning up..."
-  # Remove SSH keys
-  rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
-  # Remove temporary password file if it was created
-  if [ -n "${temp_passwd_file}" ] && [ -f "$temp_passwd_file" ]; then
-    rm -f "$temp_passwd_file"
-  fi
-  # Kill SSH agent if running
-  if [ -n "${SSH_AGENT_PID+x}" ] && [ -n "$SSH_AGENT_PID" ]; then
-    kill $SSH_AGENT_PID 2>/dev/null || true
-  fi
-  # Remove docker context
-  docker context rm remote -f 2>/dev/null || true
-  # Report deployment status
-  if [ $exit_code -eq 0 ]; then
-    echo "deployment_status=success" >> "$GITHUB_OUTPUT"
-  else
-    echo "deployment_status=failed" >> "$GITHUB_OUTPUT"
-  fi
-  exit $exit_code
-}
-
-# Set trap before any resource creation so it covers the entire lifecycle
-trap cleanup EXIT
 
 echo "Registering SSH keys..."
 
 # register the private key with the agent.
 mkdir -p ~/.ssh
+chmod 700 ~/.ssh
 printf '%s\n' "$INPUT_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
 chmod 600 ~/.ssh/id_rsa
 printf '%s\n' "$INPUT_SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
