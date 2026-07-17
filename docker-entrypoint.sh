@@ -245,6 +245,16 @@ fi
 # Use 10# prefix to force base-10 interpretation (leading zeros would cause octal parsing)
 INPUT_KEEP_FILES=$((10#$INPUT_KEEP_FILES+1))
 
+# Validate boolean inputs
+# Must be exactly 'true' or 'false' to prevent silent failures from invalid values like 'yes', '1', etc.
+for var_name in INPUT_COPY_STACK_FILE INPUT_PULL_IMAGES_FIRST INPUT_DOCKER_PRUNE; do
+  eval "value=\${$var_name}"
+  if [ "$value" != "true" ] && [ "$value" != "false" ]; then
+    echo "Error: $var_name must be 'true' or 'false', got: $value"
+    exit 1
+  fi
+done
+
 STACK_FILE="${INPUT_STACK_FILE_NAME}"
 DEPLOYMENT_COMMAND_OPTIONS=""
 
@@ -305,9 +315,9 @@ fi
 if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_USERNAME}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
   echo "Connecting to $INPUT_DOCKER_REGISTRY_URI..."
   # Use a temporary file for the password to avoid leaving it in process lists
+  # Create with umask 077 to ensure file is created with mode 0600 directly (no race condition)
   temp_passwd_file="$(mktemp)"
-  printf '%s' "$INPUT_DOCKER_REGISTRY_PASSWORD" > "$temp_passwd_file"
-  chmod 600 "$temp_passwd_file"
+  ( umask 077 && printf '%s' "$INPUT_DOCKER_REGISTRY_PASSWORD" > "$temp_passwd_file" )
   if ! docker login -u "$INPUT_DOCKER_REGISTRY_USERNAME" --password-file "$temp_passwd_file" "$INPUT_DOCKER_REGISTRY_URI"; then
     echo "Error: Docker login failed"
     rm -f "$temp_passwd_file"
