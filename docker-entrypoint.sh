@@ -302,7 +302,7 @@ if ! docker context use remote; then
   exit 1
 fi
 
-if [ ! -z "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ ! -z "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ ! -z "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
+if [ -n "${INPUT_DOCKER_REGISTRY_USERNAME+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_USERNAME}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD+x}" ] && [ -n "${INPUT_DOCKER_REGISTRY_PASSWORD}" ]; then
   echo "Connecting to $INPUT_DOCKER_REGISTRY_URI..."
   # Use a temporary file for the password to avoid leaving it in process lists
   temp_passwd_file="$(mktemp)"
