@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced implicit `*) → docker-compose` fallback with explicit error on invalid `deployment_mode`
 - Sharpened README hook from generic description to problem-first narrative
 - Added comparison table vs ssh-deploy, appleboy/ssh-action, manual SSH scripts
-- Pinned Docker Compose to v2.30.3 (latest stable)
+- Pinned Docker Compose to v2.40.3 (latest stable v2)
 
 ### Removed
 - Deleted stale `docker-entrypoint.sh.bak` backup file

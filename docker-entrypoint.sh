@@ -248,7 +248,7 @@ INPUT_KEEP_FILES=$((10#$INPUT_KEEP_FILES+1))
 # Validate boolean inputs
 # Must be exactly 'true' or 'false' to prevent silent failures from invalid values like 'yes', '1', etc.
 for var_name in INPUT_COPY_STACK_FILE INPUT_PULL_IMAGES_FIRST INPUT_DOCKER_PRUNE; do
-  eval "value=\${$var_name}"
+  value="${!var_name}"
   if [ "$value" != "true" ] && [ "$value" != "false" ]; then
     echo "Error: $var_name must be 'true' or 'false', got: $value"
     exit 1

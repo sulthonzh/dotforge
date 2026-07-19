@@ -19,7 +19,7 @@ Complete workflow example in README with secrets setup. Standard GitHub Action u
 ### 3. All tests GREEN (100% pass rate) ✅
 - No unit test framework (shell-based GitHub Action)
 - ShellCheck: SC2086 info on `eval "$(ssh-agent)"` (acceptable — ssh-agent output is trusted)
-- Docker build: `docker:28` base image with Docker Compose v2.30.3
+- Docker build: `docker:28` base image with Docker Compose v2.40.3
 - action.yml valid with outputs section
 
 ### 4. Test coverage >= 80% on core logic ✅
@@ -46,7 +46,7 @@ CHANGELOG.md with [Unreleased] section and versioned entries (1.1.0, 1.0.0). For
 
 ### 10. Modern stack ✅
 - Docker 28 (latest)
-- Docker Compose v2.30.3 (latest stable)
+- Docker Compose v2.40.3 (latest stable v2)
 - Non-root user (security improvement over docker-remote-deployment-action)
 - bash with `set -eu`
 - GitHub Actions Docker runner
@@ -71,7 +71,7 @@ README frames the problem (200-line bash scripts) vs the solution (15 lines of Y
 
 - **Entrypoint:** `docker-entrypoint.sh` (bash)
 - **Base image:** `docker:28` (Alpine + Docker CLI, latest)
-- **Docker Compose:** v2.30.3 binary (pinned)
+- **Docker Compose:** v2.40.3 binary (pinned)
 - **Non-root user:** `docker` (uid 1001) — security improvement
 - **Outputs:** `deployment_status` declared in action.yml
 
