@@ -1,4 +1,4 @@
-FROM docker:28
+FROM docker:29
 
 LABEL 'name'='Docker Deployment Action'
 LABEL 'com.github.actions.name'='Docker Deployment'
