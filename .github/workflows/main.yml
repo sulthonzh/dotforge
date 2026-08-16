@@ -24,7 +24,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-          
+
+      - name: Install pyyaml
+        run: pip install pyyaml
+
       - name: Run basic tests
         run: |
           echo "Testing action.yml..."
