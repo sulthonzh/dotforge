@@ -12,8 +12,8 @@ RUN apk --no-cache add openssh-client curl bash \
     && chmod +x /usr/local/bin/docker-compose
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S docker && \
-    adduser -S docker -G docker -u 1001
+RUN (addgroup -g 1001 -S docker || true) && \
+    (adduser -S docker -G docker -u 1001 || true)
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
