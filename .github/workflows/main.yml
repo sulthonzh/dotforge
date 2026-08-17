@@ -60,7 +60,8 @@ jobs:
           "
 
   build:
-
+    # 2026-08-17: no DOCKER_HUB_* secrets (fleet-wide ENEEDAUTH) — gate instead of failing every push (set DOCKER_PUBLISH_ENABLED=true + secrets to re-enable)
+    if: ${{ vars.DOCKER_PUBLISH_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: test
@@ -84,7 +85,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: sulthonzh/docker-remote-deployment-action
+          images: sulthonzh/dotforge
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
