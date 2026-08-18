@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Deploy to Docker host
-        uses: sulthonzh/dotforge@v0.8.0
+        uses: sulthonzh/dotforge@v0.9.0
         with:
           remote_docker_host: ${{ secrets.REMOTE_HOST }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Deploy to Docker Swarm
-        uses: sulthonzh/dotforge@v0.8.0
+        uses: sulthonzh/dotforge@v0.9.0
         with:
           remote_docker_host: ${{ secrets.REMOTE_HOST }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Deploy to private registry
-        uses: sulthonzh/dotforge@v0.8.0
+        uses: sulthonzh/dotforge@v0.9.0
         with:
           remote_docker_host: ${{ secrets.REMOTE_HOST }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
