@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, svr1]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -62,7 +62,7 @@ jobs:
   build:
     # 2026-08-17: no DOCKER_HUB_* secrets (fleet-wide ENEEDAUTH) — gate instead of failing every push (set DOCKER_PUBLISH_ENABLED=true + secrets to re-enable)
     if: ${{ vars.DOCKER_PUBLISH_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, svr1]
     timeout-minutes: 15
     needs: test
 
